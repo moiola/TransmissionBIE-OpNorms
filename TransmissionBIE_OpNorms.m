@@ -14,13 +14,14 @@ if nargin < 3
     no = 3;             % PDE coefficient in unbounded domain (3 or 1 in paper example)
 end
 
+kmin = 0.1;         % Minimal wavenumber k considered
 kmax = 15;          % Maximal wavenumber k considered
 numk = 1000;        % Number of values of k used (numk=10000 for the plots in the paper, reduce for quicker computations)
 Lmax = 100;         % Maximal Fourier index considered (Lmax=100 for the plots in the paper)
 SaveFig = 0;        % 1=Save figures plotted, 0 don't save
 
-k = linspace(0.1,kmax,numk);
-fprintf('\nPlot operator norms for %d-dimensional scattering problem, with ni=%g, no=%g, up to L=%d and k=%d, with %d values of k.\n', Dim,ni,no,Lmax,kmax,numk)
+k = linspace(kmin,kmax,numk);
+fprintf('\nPlot operator norms for %d-dimensional scattering problem.\nUse ni=%g, no=%g, up to L=%d, with %g<k<%g and %d values of k.\n', Dim,ni,no,Lmax,kmin,kmax,numk)
 if ni > no, disp('ni>no: expect physical quasi-resonances.'),
 else,       disp('ni<no: all quasi-resonances are spurious.'), end
 
@@ -108,12 +109,13 @@ for i_k = 1:numk
     % Write operators for l-th Fourier mode as 2x2 matrices & compute norms
         AI = [-Ki(i_l,i_k)-Ko(i_l,i_k), Vi(i_l,i_k)+Vo(i_l,i_k); Wi(i_l,i_k)+Wo(i_l,i_k),Ki(i_l,i_k)+Ko(i_l,i_k)];
         AII = [1+Ki(i_l,i_k)-Ko(i_l,i_k), -Vi(i_l,i_k)+Vo(i_l,i_k); -Wi(i_l,i_k)+Wo(i_l,i_k),1-Ki(i_l,i_k)+Ko(i_l,i_k)];
-        Sio = [-Ji(i_l,i_k)*Bo(i_l,i_k), Ji(i_l,i_k)*Ho(i_l,i_k).*SobolevWeight(i_l);...
-               -Ai(i_l,i_k)*Bo(i_l,i_k)./SobolevWeight(i_l), Ai(i_l,i_k)*Ho(i_l,i_k)] / (Ho(i_l,i_k)*Ai(i_l,i_k)-Ji(i_l,i_k)*Bo(i_l,i_k));
-        NormAI_k(i_l) = norm(inv(AI));
-        NormAII_k(i_l) = norm(inv(AII));
+        Sio = [-Ji(i_l,i_k)*Bo(i_l,i_k), Ji(i_l,i_k)*Ho(i_l,i_k).*SobolevWeight(i_l,i_k);...
+               -Ai(i_l,i_k)*Bo(i_l,i_k)./SobolevWeight(i_l,i_k), Ai(i_l,i_k)*Ho(i_l,i_k)] / (Ho(i_l,i_k)*Ai(i_l,i_k)-Ji(i_l,i_k)*Bo(i_l,i_k));
+        NormAI_k(i_l) = 1/min(svd(AI));
+        NormAII_k(i_l) = 1/min(svd(AII));
         NormSio_k(i_l) = norm(Sio);
     end
+    
     % For each k compute max norm over Fourier indices and store largest l
     [NormAI(i_k),Loc_AI] = max(NormAI_k);
     [NormAII(i_k),Loc_AII] = max(NormAII_k);
@@ -124,10 +126,10 @@ for i_k = 1:numk
 end
 
 %% Plot operator norms for classical (non-augmented) formulations
-figure('position',[50,30,1100,750])
-semilogy(k,NormAI, k,NormAII, 'linewidth',2)
+F1 = figure('position',[50,30,1100,750]);
+semilogy(k,NormAI, k,NormAII, 'linewidth',3)
 hold on, grid on
-semilogy(k,NormSio, 'linewidth',4);
+semilogy(k,NormSio, 'linewidth',3);
 xlabel('Wavenumber $k$','interpreter','latex')
 ylabel('Operator norm', 'interpreter','latex')
 title(['Unit ',Shape,' transmission problem, classical formulations: $n_i=',num2str(ni),'$, $n_o=',num2str(no),'$'],  'interpreter','latex')
@@ -135,7 +137,7 @@ legend('$\|A_I^{-1}\|$','$\|A_{II}^{-1}\|$','$\|S_{io}\|$', 'interpreter','latex
 addToolbarExplorationButtons(gcf); 
 set(gca,'FontSize',22)
 if SaveFig
-    print('-dpng',['TransmissionBIE-OpNorms-',num2str(Dim),'d-ni',num2str(ni),'-no',num2str(no),'_k.png'])
+    print(F1, '-dpng',['TransmissionBIE-OpNorms-',num2str(Dim),'d-ni',num2str(ni),'-no',num2str(no),'_k.png'])
 end
 
 %% Repeat for augmented formulation
@@ -161,10 +163,10 @@ if ni<no
         LargestL_AIIaug = max( LargestL_AIIaug, abs(Loc_AIIaug - Lshift));
     end
     
-    figure('position',[300,30,1200,750])
+    F2 = figure('position',[300,30,1200,750]);
     semilogy(k,NormAIaug, k,NormAIIaug, 'linewidth',3)
     hold on, grid on
-    semilogy(k,NormSio, 'linewidth',4);
+    semilogy(k,NormSio, 'linewidth',3);
     xlabel('Wavenumber $k$','interpreter','latex')
     ylabel('Operator norm', 'interpreter','latex')
     title(['Unit ',Shape,' transmission problem, augmented formulations: $n_i=',num2str(ni),'$, $n_o=',num2str(no),'$'],  'interpreter','latex')
@@ -172,7 +174,7 @@ if ni<no
     addToolbarExplorationButtons(gcf);
     set(gca,'FontSize',22)
     if SaveFig
-        print('-dpng',['TransmissionBIE-OpNorms-Augmented-',num2str(Dim),'d-ni',num2str(ni),'-no',num2str(no),'_k.png'])
+        print(F2,'-dpng',['TransmissionBIE-OpNorms-Augmented-',num2str(Dim),'d-ni',num2str(ni),'-no',num2str(no),'_k.png'])
     end
     disp('The largest Fourier indices maximising the norms for some k are')
     fprintf(' A_I: %d\n A_II: %d\n S_io: %d\n A_I-aug: %d\n A_II-aug: %d\n',LargestL_AI,LargestL_AII, LargestL_Sio, LargestL_AIaug, LargestL_AIIaug)
